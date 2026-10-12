@@ -1,0 +1,63 @@
+name: Deploy Site
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing the site's package.json"
+        type: string
+        default: website
+      output-dir:
+        description: "Build output directory, relative to working-directory"
+        type: string
+        default: dist
+      node-version:
+        description: "Node.js version"
+        type: string
+        default: lts/*
+
+jobs:
+  build:
+    name: Build Site
+    runs-on: ubuntu-slim
+
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+          cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ inputs.working-directory }}/${{ inputs.output-dir }}
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-slim
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
